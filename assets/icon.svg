@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="php2shell-check">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2b3050"/>
+      <stop offset="1" stop-color="#151827"/>
+    </linearGradient>
+    <linearGradient id="shield" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8f93c9"/>
+      <stop offset="1" stop-color="#5d6199"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+  <path d="M64 18 L100 31 V60 C100 84 85 101 64 110 C43 101 28 84 28 60 V31 Z"
+        fill="url(#shield)"/>
+  <path d="M64 18 L100 31 V60 C100 84 85 101 64 110 Z" fill="#ffffff" opacity="0.08"/>
+  <path d="M47 63 L59 75 L82 51" fill="none" stroke="#ffffff" stroke-width="9"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
