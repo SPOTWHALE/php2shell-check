@@ -39,8 +39,12 @@ powershell -ExecutionPolicy Bypass -File .\check-php2shell.ps1
 | `sudo bash check-php2shell.sh --hunt` | Am I vulnerable, and was I already hacked? |
 | `sudo bash check-php2shell.sh --hunt --since 2026-06-01` | Same, looking further back in time |
 | `sudo bash check-php2shell.sh --summary` | One-line result, for many servers |
+| `bash check-php2shell.sh --url https://example.com` | Weak remote check from the site's HTTP headers |
 
-Exit code: `0` all clear, `1` vulnerable, `2` needs a manual look.
+Exit code: `0` all clear, `1` vulnerable, `2` needs a manual look, `3` (`--url` only) version could not be read.
+
+> [!NOTE]
+> `--url` only reads the version a site advertises in its `Server` / `X-Powered-By` headers, so you can triage a site you have no shell on. It is a weak hint: most servers hide the version (`expose_php=Off` → UNKNOWN, which does **not** mean safe), headers can be faked, and a distro backport keeps the old number. The on-server check above is the real answer.
 
 ## Am I vulnerable?
 

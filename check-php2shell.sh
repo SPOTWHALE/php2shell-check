@@ -9,9 +9,11 @@
 #   sudo bash check-php2shell.sh --hunt     # also look for signs of compromise
 #   sudo bash check-php2shell.sh --hunt --since 2026-06-01   # look further back
 #   sudo bash check-php2shell.sh --summary  # one line, for running across many servers
+#   bash check-php2shell.sh --url https://example.com   # weak remote header check
 #
 # Exit codes: 0 = nothing vulnerable found, 1 = vulnerable PHP found,
-#             2 = nothing vulnerable but some items need manual review.
+#             2 = nothing vulnerable but some items need manual review,
+#             3 = --url could not read a PHP version (unknown, not a clean bill).
 
 set -u
 export LC_ALL=C
@@ -20,12 +22,14 @@ CVES="CVE-2026-109618|CVE-2026-109619"
 LEAK_DATE="2026-10-20"
 HUNT=0
 SUMMARY=0
+URL=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --hunt) HUNT=1 ;;
     --summary) SUMMARY=1 ;;
     --since) shift; LEAK_DATE="${1:?--since needs a date like 2026-06-01}" ;;
-    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
+    --url) shift; URL="${1:?--url needs a URL like https://example.com}" ;;
+    -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 64 ;;
   esac
   shift
@@ -122,6 +126,50 @@ report() {
   esac
   [ -n "$pkg" ] && say "               package: $pkg"
 }
+
+# ------------------------------------------------------------------- url mode
+# A weak, external first pass: read the PHP version a site advertises in its
+# HTTP headers. Many servers hide this (expose_php=Off), headers can be faked,
+# and a distro backport keeps the old number, so UNKNOWN never means "safe".
+# This is a hint, not a verdict. For a real answer, run the script on the box.
+if [ -n "$URL" ]; then
+  case "$URL" in
+    http://*|https://*) ;;
+    *) echo "--url must start with http:// or https://" >&2; exit 64 ;;
+  esac
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "--url needs curl installed" >&2; exit 69
+  fi
+  hdr "Remote header check for $URL (weak external hint)"
+
+  # HEAD first; some servers answer HEAD with 405/501, so fall back to GET.
+  hdrs=$(curl -sS -m 15 -A "php2shell-check" -D - -o /dev/null -I "$URL" 2>/dev/null)
+  code=$(printf '%s' "$hdrs" | grep -oiE '^HTTP/[0-9.]+ [0-9]+' | tail -n1 | grep -oE '[0-9]+$')
+  case "$code" in
+    405|501|"") hdrs=$(curl -sS -m 15 -A "php2shell-check" -D - -o /dev/null "$URL" 2>/dev/null) ;;
+  esac
+
+  banner=$(printf '%s' "$hdrs" | grep -iE '^(Server|X-Powered-By):')
+  v=$(printf '%s' "$banner" | extract_version)
+
+  if [ -z "$v" ]; then
+    say "  ${YEL}[UNKNOWN]${RST} no PHP version in the Server or X-Powered-By headers."
+    say "  The site may hide its version (expose_php=Off), or not be PHP."
+    say "  UNKNOWN does not mean safe. Check on the server with this script."
+    [ -n "$banner" ] && say "  headers seen: $(printf '%s' "$banner" | paste -sd'; ' -)"
+    exit 3
+  fi
+
+  verdict "$v" ""
+  case "$VERDICT" in
+    PATCHED) say "  ${GRN}[OK]${RST}         advertises PHP $v  ($REASON)"; CODE=0 ;;
+    VULNERABLE) say "  ${RED}[VULNERABLE]${RST} advertises PHP $v  ($REASON)"; CODE=1 ;;
+    *) say "  ${YEL}[REVIEW]${RST}     advertises PHP $v  ($REASON)"; CODE=2 ;;
+  esac
+  say "  Header value only. It can be spoofed, and a distro backport can patch"
+  say "  this same version number. Confirm on the server for a real answer."
+  exit "$CODE"
+fi
 
 # ---------------------------------------------------------------- host binaries
 hdr "PHP binaries on this host"
